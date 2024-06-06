@@ -1,0 +1,74 @@
+name: Build Android
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - precision: single
+            arch: arm64
+            abi: arm64-v8a
+            artifact: Android-ARM
+          - precision: single
+            arch: x86_64
+            abi: x86_64
+            artifact: Android-x64
+          - precision: single
+            arch: x86_32
+            abi: x86
+            artifact: Android-x86
+
+          - precision: double
+            arch: arm64
+            abi: arm64-v8a
+            artifact: Android-ARM-double
+          - precision: double
+            arch: x86_64
+            abi: x86_64
+            artifact: Android-x64-double
+          - precision: double
+            arch: x86_32
+            abi: x86
+            artifact: Android-x86-double
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Opus Models
+        working-directory: ./thirdparty/opus
+        run: ./autogen.sh
+
+      - name: Create Opus build dir
+        working-directory: ./thirdparty/opus
+        run: mkdir build
+
+      - name: Configure Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake .. -DCMAKE_TOOLCHAIN_FILE=${ANDROID_HOME}/ndk/25.2.9519653/build/cmake/android.toolchain.cmake -DANDROID_ABI=${{ matrix.abi }} -DCMAKE_BUILD_TYPE=Release -DOPUS_BUILD_PROGRAMS=ON -DBUILD_TESTING=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+
+      - name: Build Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake --build . -j 2 --config Release
+
+      - name: 🔗 GDExtension Build
+        uses: godotengine/godot-cpp-template/.github/actions/build@main
+        with:
+          platform: android
+          arch: ${{ matrix.arch }}
+          float-precision: ${{ matrix.precision }}
+          build-target-type: template_release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Godot_Opus-${{ matrix.artifact }}
+          path: |
+            ${{ github.workspace }}/bin/**/*.so
+          if-no-files-found: error

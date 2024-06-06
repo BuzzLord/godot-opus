@@ -1,0 +1,69 @@
+name: Build Windows
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - precision: single
+            arch: x86_32
+            opus_arch: Win32
+            artifact: Win32
+          - precision: single
+            arch: x86_64
+            opus_arch: x64
+            artifact: Win64
+          - precision: double
+            arch: x86_32
+            opus_arch: Win32
+            artifact: Win32-double
+          - precision: double
+            arch: x86_64
+            opus_arch: x64
+            artifact: Win64-double
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Opus Models
+        working-directory: ./thirdparty/opus
+        run: .\autogen.bat
+
+      - name: Create Opus build dir
+        working-directory: ./thirdparty/opus
+        run: mkdir build
+
+      - name: Configure Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake .. -G "Visual Studio 17 2022" -A ${{ matrix.opus_arch }} -DCMAKE_BUILD_TYPE=Release -DOPUS_BUILD_PROGRAMS=ON -DBUILD_TESTING=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DOPUS_STATIC_RUNTIME=ON
+
+      - name: Build Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake --build . -j 2 --config Release
+
+      - name: Test Opus
+        working-directory: ./thirdparty/opus/build
+        run: ctest -j 2 -C Release --output-on-failure
+
+      - name: 🔗 GDExtension Build
+        uses: godotengine/godot-cpp-template/.github/actions/build@main
+        with:
+          platform: windows
+          arch: ${{ matrix.arch }}
+          float-precision: ${{ matrix.precision }}
+          build-target-type: template_release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Godot_Opus-${{ matrix.artifact }}
+          path: |
+            ${{ github.workspace }}/bin/**/*.dll
+          if-no-files-found: error

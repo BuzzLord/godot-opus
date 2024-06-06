@@ -1,0 +1,61 @@
+name: Build Linux
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - precision: single
+            arch: x86_64
+            artifact: Linux
+          - precision: double
+            arch: x86_64
+            artifact: Linux-double
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Opus Models
+        working-directory: ./thirdparty/opus
+        run: ./autogen.sh
+
+      - name: Create Opus build dir
+        working-directory: ./thirdparty/opus
+        run: mkdir build
+
+      - name: Configure Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake .. -DCMAKE_BUILD_TYPE=Release -DOPUS_BUILD_PROGRAMS=ON -DBUILD_TESTING=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DOPUS_STATIC_RUNTIME=ON
+
+      - name: Build Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake --build . -j 2 --config Release
+
+      - name: Test Opus
+        working-directory: ./thirdparty/opus/build
+        run: ctest -j 2 -C Release --output-on-failure
+
+      - name: 🔗 GDExtension Build
+        uses: godotengine/godot-cpp-template/.github/actions/build@main
+        with:
+          platform: linux
+          arch: ${{ matrix.arch }}
+          float-precision: ${{ matrix.precision }}
+          build-target-type: template_release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Godot_Opus-${{ matrix.artifact }}
+          path: |
+            ${{ github.workspace }}/bin/**/*.so
+          if-no-files-found: error

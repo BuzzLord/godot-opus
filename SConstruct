@@ -14,25 +14,25 @@ env = SConscript("thirdparty/godot-cpp/SConstruct")
 
 # tweak this if you want to use different folders, or more folders, to store your source code in.
 env.Append(CPPPATH=["src/", "thirdparty/opus/include/"])
-env.Append(LIBPATH=["thirdparty/opus/build"])
 sources = Glob("src/*.cpp")
 
-if env["platform"] == "linux":
-    env.Append(LIBS="libopus")
-elif env["platform"] == "windows":
+if env["platform"] == "windows":
+    env.Append(LIBPATH=["thirdparty/opus/build/Release"])
     env.Append(LIBS="opus.lib")
+else:
+    env.Append(LIBPATH=["thirdparty/opus/build"])
+    env.Append(LIBS="libopus")
 
-
-if env["platform"] == "macos":
+if env["platform"] == "macos" or env["platform"] == "ios":
     library = env.SharedLibrary(
-        "bin/addons/godot_opus/{}/libgodot_opus.{}.{}.framework/libgodot_opus.{}.{}".format(
-            env["platform"], env["platform"], env["target"], env["platform"], env["target"]
+        "bin/addons/godot_opus/bin/libgodot_opus{}.framework/libgodot_opus{}".format(
+            env["suffix"], env["suffix"]
         ),
         source=sources,
     )
 else:
     library = env.SharedLibrary(
-        "bin/addons/godot_opus/{}/libgodot_opus{}{}".format(env["platform"], env["suffix"], env["SHLIBSUFFIX"]),
+        "bin/addons/godot_opus/bin/libgodot_opus{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
         source=sources,
     )
 

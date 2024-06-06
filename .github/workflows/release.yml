@@ -4,20 +4,28 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout 
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 0
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: Godot_Opus
+          name: Godot_Opus-Common
+          path: |
+            ${{ github.workspace }}/bin/samples/**
+            ${{ github.workspace }}/bin/addons/godot_opus/godot_opus.gdextension
+            ${{ github.workspace }}/bin/addons/godot_opus/godot_opus.svg
+          if-no-files-found: error
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
           path: godot-opus
+          merge-multiple: true
       - name: Delete draft release(s)
         uses: hugo19941994/delete-draft-releases@v1.0.0
         env:

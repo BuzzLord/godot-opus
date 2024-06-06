@@ -1,13 +1,48 @@
 [configuration]
+
 entry_symbol = "godot_opus_library_init"
 compatibility_minimum = "4.1"
 
 [icons]
+
 GodotOpus = "godot_opus.svg"
 
 [libraries]
-windows.debug.x86_64 = "windows/libgodot_opus.windows.template_debug.x86_64.dll"
-windows.release.x86_64 = "windows/libgodot_opus.windows.template_release.x86_64.dll"
-linux.debug.x86_64 = "linux/libgodot_opus.linux.template_debug.x86_64.so"
-linux.release.x86_64 = "linux/libgodot_opus.linux.template_release.x86_64.so"
 
+macos.debug = "bin/libgodot_opus.macos.template_release.universal.framework"
+macos.release = "bin/libgodot_opus.macos.template_release.universal.framework"
+macos.debug.double = "bin/libgodot_opus.macos.template_release.double.universal.framework"
+macos.release.double = "bin/libgodot_opus.macos.template_release.double.universal.framework"
+
+ios.debug = "bin/libgodot_opus.ios.template_release.arm64.dylib"
+ios.release = "bin/libgodot_opus.ios.template_release.arm64.dylib"
+ios.debug.double = "bin/libgodot_opus.ios.template_release.double.arm64.dylib"
+ios.release.double = "bin/libgodot_opus.ios.template_release.double.arm64.dylib"
+
+windows.debug.x86_32 = "bin/libgodot_opus.windows.template_release.x86_32.dll"
+windows.release.x86_32 = "bin/libgodot_opus.windows.template_release.x86_32.dll"
+windows.debug.x86_64 = "bin/libgodot_opus.windows.template_release.x86_64.dll"
+windows.release.x86_64 = "bin/libgodot_opus.windows.template_release.x86_64.dll"
+windows.debug.double.x86_32 = "bin/libgodot_opus.windows.template_release.double.x86_32.dll"
+windows.release.double.x86_32 = "bin/libgodot_opus.windows.template_release.double.x86_32.dll"
+windows.debug.double.x86_64 = "bin/libgodot_opus.windows.template_release.double.x86_64.dll"
+windows.release.double.x86_64 = "bin/libgodot_opus.windows.template_release.double.x86_64.dll"
+
+linux.debug.x86_64 = "bin/libgodot_opus.linux.template_release.x86_64.so"
+linux.release.x86_64 = "bin/libgodot_opus.linux.template_release.x86_64.so"
+linux.debug.double.x86_64 = "bin/libgodot_opus.linux.template_release.double.x86_64.so"
+linux.release.double.x86_64 = "bin/libgodot_opus.linux.template_release.double.x86_64.so"
+
+android.debug.x86_64 = "bin/libgodot_opus.android.template_release.x86_64.so"
+android.release.x86_64 = "bin/libgodot_opus.android.template_release.x86_64.so"
+android.debug.x86_32 = "bin/libgodot_opus.android.template_release.x86_32.so"
+android.release.x86_32 = "bin/libgodot_opus.android.template_release.x86_32.so"
+android.debug.arm64 = "bin/libgodot_opus.android.template_release.arm64.so"
+android.release.arm64 = "bin/libgodot_opus.android.template_release.arm64.so"
+
+android.debug.double.x86_64 = "bin/libgodot_opus.android.template_release.double.x86_64.so"
+android.release.double.x86_64 = "bin/libgodot_opus.android.template_release.double.x86_64.so"
+android.debug.double.x86_32 = "bin/libgodot_opus.android.template_release.double.x86_32.so"
+android.release.double.x86_32 = "bin/libgodot_opus.android.template_release.double.x86_32.so"
+android.debug.double.arm64 = "bin/libgodot_opus.android.template_release.double.arm64.so"
+android.release.double.arm64 = "bin/libgodot_opus.android.template_release.double.arm64.so"
