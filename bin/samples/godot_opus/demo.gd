@@ -40,6 +40,7 @@ func _init():
 func _ready():
 	_init_opus()
 	
+	input.bus = &"Capture"
 	bus_index = AudioServer.get_bus_index("Capture")
 	effect = AudioServer.get_bus_effect(bus_index, 0)
 	playback = output.get_stream_playback()
