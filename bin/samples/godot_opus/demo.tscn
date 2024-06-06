@@ -1,0 +1,201 @@
+[gd_scene load_steps=4 format=3 uid="uid://drfygs126t4ii"]
+
+[ext_resource type="Script" path="res://samples/godot_opus/demo.gd" id="1_l6c0d"]
+
+[sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_qeny7"]
+
+[sub_resource type="AudioStreamGenerator" id="AudioStreamGenerator_l1q65"]
+mix_rate = 48000.0
+buffer_length = 0.1
+
+[node name="Demo" type="Node2D"]
+script = ExtResource("1_l6c0d")
+
+[node name="GodotOpus" type="GodotOpus" parent="."]
+channels = 1
+frame_duration = 5003
+
+[node name="Input" type="AudioStreamPlayer" parent="."]
+stream = SubResource("AudioStreamMicrophone_qeny7")
+autoplay = true
+bus = &"Capture"
+
+[node name="Output" type="AudioStreamPlayer" parent="."]
+stream = SubResource("AudioStreamGenerator_l1q65")
+autoplay = true
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 278.0
+offset_top = 144.0
+offset_right = 874.0
+offset_bottom = 504.0
+
+[node name="PanelContainer" type="PanelContainer" parent="UI"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -192.0
+offset_right = 320.0
+offset_bottom = 192.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/PanelContainer/MarginContainer"]
+layout_mode = 2
+
+[node name="GodotOpusDemoLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "Godot Opus Demo"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="UI/PanelContainer/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 64
+theme_override_constants/margin_right = 64
+
+[node name="GridContainer" type="GridContainer" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="BitRateLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Bit Rate of the transmitted packets."
+mouse_filter = 0
+text = "Bit Rate"
+
+[node name="BitRateValueLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="OpusEnabledLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Enable encoding and decoding of 
+the voice/mic data packets using the 
+configured Opus parameters."
+mouse_filter = 0
+text = "Opus Codec"
+
+[node name="OpusEnabledOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+item_count = 2
+selected = 0
+popup/item_0/text = "Enabled"
+popup/item_0/id = 0
+popup/item_1/text = "Disabled"
+popup/item_1/id = 1
+
+[node name="ChannelsLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Number of channels to transmit. 
+Mono signals are decoded to stereo
+on the receiving side."
+mouse_filter = 0
+text = "Channels"
+
+[node name="ChannelsOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+item_count = 2
+selected = 0
+popup/item_0/text = "Mono"
+popup/item_0/id = 0
+popup/item_1/text = "Stereo"
+popup/item_1/id = 1
+
+[node name="FrameDurationLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Duration in milliseconds that the 
+Opus codec acts on. Lower 
+durations give better (lower) latency, 
+but increase the bit rate."
+mouse_filter = 0
+text = "Frame Duration"
+
+[node name="FrameDurationOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+item_count = 9
+selected = 2
+popup/item_0/text = "2.5 ms"
+popup/item_0/id = 0
+popup/item_1/text = "5 ms"
+popup/item_1/id = 1
+popup/item_2/text = "10 ms"
+popup/item_2/id = 2
+popup/item_3/text = "20 ms"
+popup/item_3/id = 3
+popup/item_4/text = "40 ms"
+popup/item_4/id = 4
+popup/item_5/text = "60 ms"
+popup/item_5/id = 5
+popup/item_6/text = "80 ms"
+popup/item_6/id = 6
+popup/item_7/text = "100 ms"
+popup/item_7/id = 7
+popup/item_8/text = "120 ms"
+popup/item_8/id = 8
+
+[node name="BandwidthLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Bandwidth target of the Opus 
+codec. Can be used to decrease bit 
+rate, at the expense of audio quality."
+mouse_filter = 0
+text = "Bandwidth"
+
+[node name="BandwidthOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+item_count = 6
+selected = 0
+popup/item_0/text = "Auto Bandwidth"
+popup/item_0/id = 0
+popup/item_1/text = "Narrow Band"
+popup/item_1/id = 1
+popup/item_2/text = "Medium Band"
+popup/item_2/id = 2
+popup/item_3/text = "Wide Band"
+popup/item_3/id = 3
+popup/item_4/text = "Super Wide Band"
+popup/item_4/id = 4
+popup/item_5/text = "Full Band"
+popup/item_5/id = 5
+
+[node name="DropRateLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Debugging parameter, used to 
+demostrate how Opus sounds when 
+packets are dropped. Disable packet
+dropping by setting to 0 %."
+mouse_filter = 0
+text = "Drop Rate"
+
+[node name="DropRateSpinBox" type="SpinBox" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+suffix = "%"
+
+[connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/OpusEnabledOptions" to="." method="_on_opus_enabled_options_item_selected"]
+[connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/ChannelsOptions" to="." method="_on_channels_options_item_selected"]
+[connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/FrameDurationOptions" to="." method="_on_frame_duration_options_item_selected"]
+[connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/BandwidthOptions" to="." method="_on_bandwidth_options_item_selected"]
+[connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/DropRateSpinBox" to="." method="_on_drop_rate_spin_box_value_changed"]
+

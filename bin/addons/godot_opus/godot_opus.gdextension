@@ -1,0 +1,13 @@
+[configuration]
+entry_symbol = "godot_opus_library_init"
+compatibility_minimum = "4.1"
+
+[icons]
+GodotOpus = "godot_opus.svg"
+
+[libraries]
+windows.debug.x86_64 = "windows/libgodot_opus.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "windows/libgodot_opus.windows.template_release.x86_64.dll"
+linux.debug.x86_64 = "linux/libgodot_opus.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "linux/libgodot_opus.linux.template_release.x86_64.so"
+

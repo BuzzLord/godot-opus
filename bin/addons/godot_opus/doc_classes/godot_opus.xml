@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GodotOpus" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="./class.xsd">
+	<brief_description>
+		A helper class encompassing the Opus Audio Codec.
+	</brief_description>
+	<description>
+		A helper class that allows Godot to encode and decode sound samples or streams using the Opus Interactive Audio Codec. Can be used for either encoding, decoding, or both. Will store the internal metadata state of a stream.
+	</description>
+	<methods>
+		<method name="initialize">
+			<return type="bool" />
+			<description>
+				Initializes (or reinitializes) the state of the codec, and reallocates internal buffers using updated parameters.
+				All member parameters should be configured before [method initialize] is called.
+				No [GodotOpus] codec methods should be called until [method initialize] has been called.
+			</description>
+		</method>
+		<method name="get_frame_size">
+			<return type="int" />
+			<description>
+				Gets the calculated [member frame_size] of an initialized codec, given the sampling rate and frame duration configured.
+			</description>
+		</method>
+		<method name="clear_buffer">
+			<description>
+				Clears the encode buffer.
+			</description>
+		</method>
+		<method name="can_push_buffer">
+			<return type="bool" />
+			<param index="0" name="num_samples" type="int" />
+			<description>
+				Checks if the encode buffer has space for the given [param num_samples].
+			</description>
+		</method>
+		<method name="push_buffer">
+			<return type="bool" />
+			<param index="0" name="data" type="PackedVector2Array" />
+			<description>
+				Pushes a [PackedVector2Array] of stereo samples onto the encode buffer. 
+				If [member channels] is stereo, the left and right channels are interleaved on the buffer. 
+				If [member channels] is mono, the two channels are averaged before pushing the sample onto the buffer.
+			</description>
+		</method>
+		<method name="push_buffer_raw">
+			<return type="bool" />
+			<param index="0" name="data" type="PackedFloat32Array" />
+			<description>
+				Pushes a [PackedFloat32Array] of samples onto the encode buffer. The [member channels] parameter is ignored when packing, with the float array pushed onto the encode buffer as is.
+			</description>
+		</method>
+		<method name="has_encoded_packet">
+			<return type="bool" />
+			<description>
+				Checks if a packet can be encoded from the encode buffer. This happens when sufficient samples ([member frame_size] * [member channels]) have been pushed to the encode buffer that Opus can encode it.
+			</description>
+		</method>
+		<method name="get_encoded_packet">
+			<return type="PackedByteArray" />
+			<description>
+				Encodes a packet from the encode buffer and returns it as a byte array. If not enough samples are available, or an error occurs, an empty array is returned.
+			</description>
+		</method>
+		<method name="decode">
+			<return type="PackedVector2Array" />
+			<param index="0" name="data" type="PackedByteArray" />
+			<description>
+				Decodes a given encoded packet. 
+				If [member channels] is set to stereo, interleaved left and right channels are recovered. 
+				If [member channels] is mono, each decoded sample is duplicated to both values of each array entry.
+			</description>
+		</method>
+		<method name="decode_raw">
+			<return type="PackedFloat32Array" />
+			<param index="0" name="data" type="PackedByteArray" />
+			<description>
+				Decodes a given [method push_buffer_raw] encoded packet. The [member channels] parameter is ignored when unpacking, returning the float array as decoded.
+			</description>
+		</method>
+		<method name="decode_dropped">
+			<return type="PackedVector2Array" />
+			<param index="0" name="dropped_samples" type="int" />
+			<description>
+				Given a number of [param dropped_samples] (the frame size of a dropped packet), the decoder will attempt to recover (extrapolate) the missing packet, and update the internal state for the next packet.
+			</description>
+		</method>
+		<method name="decode_dropped_raw">
+			<return type="PackedFloat32Array" />
+			<param index="0" name="dropped_samples" type="int" />
+			<description>
+				Given a number of [param dropped_samples] (the frame size of a dropped packet) for packets encoded with [method push_buffer_raw], the decoder will attempt to recover (extrapolate) the missing packet, and update the internal state for the next packet.
+			</description>
+		</method>
+		<method name="get_decoder_count">
+			<return type="int" />
+			<description>
+				Returns the number of decoded samples. Used in conjunction with [code]skip_samples[/code] to ignore some samples right after initialization, while the encoder state is being populated.
+			</description>
+		</method>
+		<method name="reset_decoder_count">
+			<return type="int" />
+			<description>
+				Resets the decoded samples count, but returns the count before it was reset. Used to reset the [code]skip_samples[/code] behavior.
+			</description>
+		</method>
+		<method name="get_skip_samples">
+			<return type="int" />
+			<description>
+				Get the currently configured [code]skip_samples[/code] value. If initialized with an encoder, it will update to the correct calculated value for the encoder parameters used.
+				Default is for [member sampling_rate] [code]48000[/code], [member application_mode] [code]APPLICATION_MODE_VOIP[/code]: 312.
+			</description>
+		</method>
+		<method name="set_skip_samples">
+			<param index="0" name="skip_samples" type="int" />
+			<description>
+				Manually set the [code]skip_samples[/code] value. This is for changing the value on a decoder only configured [GodotOpus].
+				Ideally it should be set from a matching encoder [GodotOpus], though the default is conservative and can probably be left alone.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="encoder_enabled" type="bool" setter="set_encoder_enabled" getter="is_encoder_enabled" default="true">
+			Flag for whether or not the encoder state of the codec should be initialized.
+		</member>
+		<member name="decoder_enabled" type="bool" setter="set_decoder_enabled" getter="is_decoder_enabled" default="true">
+			Flag for whether or not the decoder state of the codec should be initialized.
+		</member>
+		<member name="sampling_rate" type="int" setter="set_sampling_rate" getter="get_sampling_rate" enum="GodotOpus.SampleRate" default="48000">
+			Sampling rate, in Hz.
+		</member>
+		<member name="channels" type="int" setter="set_channels" getter="get_channels" enum="GodotOpus.Channels" default="2">
+			Number of audio channels to encode/decode.
+		</member>
+		<member name="application_mode" type="int" setter="set_application_mode" getter="get_application_mode" enum="GodotOpus.ApplicationMode" default="2048">
+			Codec application mode, used to specify the type of audio that will be encoded/decoded. Default is VOIP.
+		</member>
+		<member name="frame_duration" type="int" setter="set_frame_duration" getter="get_frame_duration" enum="GodotOpus.FrameSizeDuration" default="5004">
+			Frame size duration that the codec operates on. Used to calculate frame size in samples, given the [member sampling_rate]. Default is 20 ms.
+		</member>
+		<member name="bandwidth" type="int" setter="set_bandwidth" getter="get_bandwidth" enum="GodotOpus.Bandwidth" default="-1000">
+			Bandwidth parameter used by the Opus codec. Default is Auto Bandwidth.
+		</member>
+		<member name="max_payload_bytes" type="int" setter="set_max_payload_bytes" getter="get_max_payload_bytes" default="1024">
+			Max allowed size of the packet payload of an encoded frame, in bytes. Should not be used to limit bandwidth, just as an upper bound on the size of encoded packets.
+		</member>
+		<member name="buffer_length_seconds" type="float" setter="set_buffer_length_seconds" getter="get_buffer_length_seconds" default="0.5">
+			Target length of the encode buffer. Actual buffer size takes [member sampling_rate] and [member channels] into account, and is rounded up to the nearest power of two.
+		</member>
+	</members>
+	<constants>
+		<constant name="SAMPLE_RATE_8000" value="8000" enum="SampleRate">
+			Sample rate of 8000 Hz.
+		</constant>
+		<constant name="SAMPLE_RATE_12000" value="12000" enum="SampleRate">
+			Sample rate of 12000 Hz.
+		</constant>
+		<constant name="SAMPLE_RATE_16000" value="16000" enum="SampleRate">
+			Sample rate of 16000 Hz.
+		</constant>
+		<constant name="SAMPLE_RATE_24000" value="24000" enum="SampleRate">
+			Sample rate of 24000 Hz.
+		</constant>
+		<constant name="SAMPLE_RATE_48000" value="48000" enum="SampleRate">
+			Sample rate of 48000 Hz.
+		</constant>
+		<constant name="CHANNELS_MONO" value="1" enum="Channels">
+			[GodotOpus] should encode/decode a mono signal.
+		</constant>
+		<constant name="CHANNELS_STEREO" value="2" enum="Channels">
+			[GodotOpus] should encode/decode a stereo signal.
+		</constant>
+		<constant name="APPLICATION_MODE_VOIP" value="2048" enum="ApplicationMode">
+			Voice over IP mode. Best for most VoIP/videoconference applications where listening quality and intelligibility matter most.
+		</constant>
+		<constant name="APPLICATION_MODE_AUDIO" value="2049" enum="ApplicationMode">
+			General purpose audio mode. Best for broadcast/high-fidelity application where the decoded audio should be as close as possible to the input.
+		</constant>
+		<constant name="APPLICATION_MODE_RESTRICTED_LOWDELAY" value="2051" enum="ApplicationMode">
+			Application mode for ultra-low latency. Not recommended. Only use when lowest-achievable latency is what matters most. Voice-optimized modes cannot be used.
+		</constant>
+		<constant name="FRAMESIZE_2_5_MS" value="5001" enum="FrameSizeDuration">
+			Frame size duration of 2.5 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_5_MS" value="5002" enum="FrameSizeDuration">
+			Frame size duration of 5 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_10_MS" value="5003" enum="FrameSizeDuration">
+			Frame size duration of 10 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_20_MS" value="5004" enum="FrameSizeDuration">
+			Frame size duration of 20 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_40_MS" value="5005" enum="FrameSizeDuration">
+			Frame size duration of 40 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_60_MS" value="5006" enum="FrameSizeDuration">
+			Frame size duration of 60 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_80_MS" value="5007" enum="FrameSizeDuration">
+			Frame size duration of 80 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_100_MS" value="5008" enum="FrameSizeDuration">
+			Frame size duration of 100 milliseconds.
+		</constant>
+		<constant name="FRAMESIZE_120_MS" value="5009" enum="FrameSizeDuration">
+			Frame size duration of 120 milliseconds.
+		</constant>
+		<constant name="BANDWIDTH_NARROWBAND" value="1101" enum="Bandwidth">
+			4 kHz bandpass.
+		</constant>
+		<constant name="BANDWIDTH_MEDIUMBAND" value="1102" enum="Bandwidth">
+			6 kHz bandpass.
+		</constant>
+		<constant name="BANDWIDTH_WIDEBAND" value="1103" enum="Bandwidth">
+			8 kHz bandpass.
+		</constant>
+		<constant name="BANDWIDTH_SUPERWIDEBAND" value="1104" enum="Bandwidth">
+			12 kHz bandpass.
+		</constant>
+		<constant name="BANDWIDTH_FULLBAND" value="1105" enum="Bandwidth">
+			20 kHz bandpass.
+		</constant>
+		<constant name="BANDWIDTH_AUTO" value="-1000" enum="Bandwidth">
+			Lets the encoder choose the optimal bandpass.
+		</constant>
+	</constants>
+</class>

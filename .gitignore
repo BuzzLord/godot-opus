@@ -1,0 +1,11 @@
+**/.*swp
+**/*.o
+**/*.dll
+**/*.lib
+**/*.a
+**/*.os
+.vscode/
+.sconsign.dblite
+bin/addons/godot_opus/linux/
+bin/addons/godot_opus/windows/
+godot_opus.zip
