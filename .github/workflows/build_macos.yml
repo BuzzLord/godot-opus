@@ -1,0 +1,89 @@
+name: Build MacOS
+on:
+  workflow_dispatch:
+  workflow_call:
+    # secrets:
+    #   APPLE_CERT_BASE64:
+    #     required: true
+    #   APPLE_CERT_PASSWORD:
+    #     required: true
+    #   APPLE_DEV_PASSWORD:
+    #     required: true
+    #   APPLE_DEV_ID:
+    #     required: true
+    #   APPLE_DEV_TEAM_ID:
+    #     required: true
+    #   APPLE_DEV_APP_ID:
+    #     required: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - precision: single
+            mac_precision_extension:
+            arch: universal
+            artifact: MacOSX
+          - precision: double
+            mac_precision_extension: .double
+            arch: universal
+            artifact: MacOSX-double
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install AutoConf, AutoMake and LibTool # Needed for autogen.sh
+        run: brew install autoconf automake libtool
+
+      - name: Download Opus Models
+        working-directory: ./thirdparty/opus
+        run: ./autogen.sh
+
+      - name: Create Opus build dir
+        working-directory: ./thirdparty/opus
+        run: mkdir build
+
+      - name: Configure Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake .. -DCMAKE_BUILD_TYPE=Release -DOPUS_BUILD_PROGRAMS=ON -DBUILD_TESTING=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+
+      - name: Build Opus
+        working-directory: ./thirdparty/opus/build
+        run: cmake --build . -j 2 --config Release
+
+      - name: Test Opus
+        working-directory: ./thirdparty/opus/build
+        run: ctest -j 2 -C Release --output-on-failure
+
+      - name: 🔗 GDExtension Build
+        uses: godotengine/godot-cpp-template/.github/actions/build@main
+        with:
+          platform: macos
+          arch: ${{ matrix.arch }}
+          float-precision: ${{ matrix.precision }}
+          build-target-type: template_release
+
+    #   - name: Mac Sign
+    #     uses: godotengine/godot-cpp-template/.github/actions/sign@main
+    #     with:
+    #       FRAMEWORK_PATH: bin/addons/godot_opus/bin/libgodot_opus.macos.template_release${{ matrix.mac_precision_extension }}.universal.framework
+    #       SIGN_FLAGS: "--deep"
+    #       APPLE_CERT_BASE64: ${{ secrets.APPLE_CERT_BASE64 }}
+    #       APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+    #       APPLE_DEV_PASSWORD: ${{ secrets.APPLE_DEV_PASSWORD }}
+    #       APPLE_DEV_ID: ${{ secrets.APPLE_DEV_ID }}
+    #       APPLE_DEV_TEAM_ID: ${{ secrets.APPLE_DEV_TEAM_ID }}
+    #       APPLE_DEV_APP_ID: ${{ secrets.APPLE_DEV_APP_ID }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Godot_Opus-${{ matrix.artifact }}
+          path: |
+            ${{ github.workspace }}/bin/**/libgodot_opus.macos.template_release${{ matrix.mac_precision_extension }}.universal.framework/**
+          if-no-files-found: error
