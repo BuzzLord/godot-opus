@@ -24,6 +24,10 @@ bus = &"Capture"
 stream = SubResource("AudioStreamGenerator_l1q65")
 autoplay = true
 
+[node name="Timer" type="Timer" parent="."]
+wait_time = 5.0
+one_shot = true
+
 [node name="UI" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 0
@@ -40,9 +44,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -320.0
-offset_top = -192.0
+offset_top = -201.5
 offset_right = 320.0
-offset_bottom = 192.0
+offset_bottom = 218.5
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -75,6 +79,16 @@ theme_override_constants/margin_right = 64
 layout_mode = 2
 theme_override_constants/v_separation = 12
 columns = 2
+
+[node name="InputDeviceLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Bit Rate of the transmitted packets."
+mouse_filter = 0
+text = "Input Device"
+
+[node name="InputDeviceOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="BitRateLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
@@ -193,9 +207,9 @@ text = "Drop Rate"
 layout_mode = 2
 suffix = "%"
 
+[connection signal="timeout" from="Timer" to="." method="_on_audio_timer_timeout"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/OpusEnabledOptions" to="." method="_on_opus_enabled_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/ChannelsOptions" to="." method="_on_channels_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/FrameDurationOptions" to="." method="_on_frame_duration_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/BandwidthOptions" to="." method="_on_bandwidth_options_item_selected"]
 [connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/DropRateSpinBox" to="." method="_on_drop_rate_spin_box_value_changed"]
-

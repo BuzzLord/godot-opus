@@ -3,8 +3,10 @@ extends Node2D
 @onready var opus = $GodotOpus
 @onready var input = $Input
 @onready var output = $Output
+@onready var check_audio_input_timer = $Timer
 @onready var opus_enabled_options = %OpusEnabledOptions
 @onready var bit_rate_value_label = %BitRateValueLabel
+@onready var input_device_options = %InputDeviceOptions
 
 const CAPTURE_BUFFER_SIZE = 256
 const MAX_PACKET_ID = (1 << 31) - 1
@@ -45,6 +47,16 @@ func _ready():
 	effect = AudioServer.get_bus_effect(bus_index, 0)
 	playback = output.get_stream_playback()
 	
+	# Populate input devices list
+	input_device_options.clear()
+	for device in AudioServer.get_input_device_list():
+		input_device_options.add_item(device)
+	for idx in range(input_device_options.item_count):
+		var device = input_device_options.get_item_text(idx)
+		if device == AudioServer.input_device:
+			input_device_options.select(idx)
+			break
+	
 	is_surround = AudioServer.get_bus_channels(bus_index) > 1
 	start_time_msec = Time.get_ticks_msec()
 
@@ -62,48 +74,51 @@ func _init_opus():
 	if opus_initialized:
 		print("Initialized GodotOpus successfully")
 	else:
-		push_error("Failed to initialize GodotOpus")
+		printerr("Failed to initialize GodotOpus")
 		use_opus = false
 		opus_enabled_options.select(1)
 		return
 	
+	# Get the calculated frame_size given the configured GodotOpus parameters
+	frame_size = opus.get_frame_size()
+	
+	# Packet statistics
 	packet_count = 0
 	packet_size_avg = 0.0
-	frame_size = opus.get_frame_size()
+	
+	if not check_audio_input_timer.is_stopped():
+		check_audio_input_timer.stop()
+	check_audio_input_timer.start()
 
 ## Grab chunk of mic data from Capture, use GodotOpus to encode, then 'send' them to client to process voice
 func _process_mic():
-	# Internal buffer handling, in case GodotOpus can't accept data for some reason
-	var use_internal_buffer = false
-	if internal_buffer.size() > 0:
-		if opus.can_push_buffer(internal_buffer.size()):
-			opus.push_buffer(internal_buffer)
-			internal_buffer.clear()
-		else:
-			use_internal_buffer = true
-			
 	while effect.get_frames_available() >= CAPTURE_BUFFER_SIZE:
+		# Process audio from the capture effect in CAPTURE_BUFFER_SIZE sized chunks
 		var stereo_data: PackedVector2Array = effect.get_buffer(CAPTURE_BUFFER_SIZE)
 		
+		# Handle potential empty/invalid data
 		if check_empty_data(stereo_data):
 			continue
 		
-		if use_internal_buffer:
-			internal_buffer.append_array(stereo_data)
-		elif opus.can_push_buffer(CAPTURE_BUFFER_SIZE):
+		# Check if GodotOpus codec has room for our samples, and if so, push them onto the encode buffer
+		if opus.can_push_buffer(CAPTURE_BUFFER_SIZE):
 			opus.push_buffer(stereo_data)
 		else:
-			internal_buffer.append_array(stereo_data)
+			printerr("Not able to push to encode buffer")
+			break
 	
 	while opus.has_encoded_packet():
+		# If GodotOpus has encoded packets available (ie. there is enough data on the encode buffer)
 		var packet: PackedByteArray = opus.get_encoded_packet()
 		
 		if packet.is_empty():
-			push_error("Error encoding packet")
+			printerr("Error encoding packet")
 			break
 		
+		# Calculate statistics for display on the UI
 		calc_packet_avg(packet.size())
 		
+		# If user wants to test packet dropping, randomly decide to drop a packet, or send it.
 		if drop_rate < randf():
 			send_data(send_id, packet)
 		send_id = inc_id(send_id)
@@ -111,9 +126,11 @@ func _process_mic():
 ## Send encoded packet to client (would be an rpc in multiplayer project). Include packet id for dropped packet detection.
 func send_data(packet_id: int, payload: PackedByteArray):
 	if packet_id == recv_id:
+		# Packet id matches expected recv_id, so add packet payload to queue, increment recv_id.
 		receive_packets.append(payload)
 		recv_id = inc_id(recv_id)
 	else:
+		# Packet id didn't match, so figure out how many packets are missing (delta).
 		var delta: int = (packet_id - recv_id) % MAX_PACKET_ID
 		if delta < DROPPED_FRAME_THRESHOLD:
 			# Probably dropped frames, populate them
@@ -125,28 +142,36 @@ func send_data(packet_id: int, payload: PackedByteArray):
 			# either means old packet(s), or huge drop. ignore it.
 			pass
 		
+		# Once dropped frames are handled, add the new packet to the queue, increment recv_id
 		receive_packets.append(payload)
 		recv_id = inc_id(recv_id)
 
 ## If any packets available, decode them and push them to Generator playback (if possible)
 func _process_voice():
 	while receive_packets.size() > 0:
+		
+		# If the playback stream cannot handle frame_size samples right now, stop processing
 		if playback.get_frames_available() < frame_size:
 			break
 		
+		# Pop encoded packet off receive_packets queue
 		var data: PackedByteArray = receive_packets[0]
 		receive_packets.remove_at(0)
 		
 		var output_data: PackedVector2Array
 		if data.size() > 0:
+			# Decode the valid packet with codec
 			output_data = opus.decode(data)
 		else:
+			# An empty encoded packet it how send_data encodes a dropped packet.
+			# Packets are fixed size, so just pass in our frame_size.
 			output_data = opus.decode_dropped(frame_size)
 		
 		if output_data.is_empty():
-			push_error("Error decoding packet")
+			printerr("Error decoding packet")
 			continue
 		
+		# Push decoded audio data to the playback stream
 		playback.push_buffer(output_data)
 
 # ------------------------------------------------------------------------------
@@ -211,7 +236,7 @@ func calc_packet_avg(size: int):
 ## Check if the data from Capture is completely empty (all zeros); skip processing if so. 
 func check_empty_data(data: PackedVector2Array) -> bool:
 	# Workaround for a bug in AudioEffectCapture on surround systems:
-	# 
+	# https://github.com/godotengine/godot/issues/91133
 	if not is_surround:
 		return false
 	for i in range(data.size()):
@@ -271,3 +296,8 @@ func _on_bandwidth_options_item_selected(index):
 func _on_drop_rate_spin_box_value_changed(value):
 	drop_rate = value / 100.0
 
+func _on_audio_timer_timeout():
+	if packet_count == 0:
+		var msg = "No Audio Detected. Check audio/driver/enable_input."
+		bit_rate_value_label.text = msg
+		printerr(msg)
