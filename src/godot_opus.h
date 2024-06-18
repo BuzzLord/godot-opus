@@ -52,6 +52,13 @@ public:
 		BANDWIDTH_AUTO = OPUS_AUTO
 	};
 
+	enum BitrateMode {
+		BITRATE_VARIABLE_AUTO = OPUS_AUTO,
+		BITRATE_VARIABLE_BITRATE_MAX = OPUS_BITRATE_MAX,
+		BITRATE_VARIABLE_MANUAL = 0,
+		BITRATE_CONSTANT = 1
+	};
+
 private:
 	OpusEncoder *encoder;
 	OpusDecoder *decoder;
@@ -76,10 +83,16 @@ private:
 	ApplicationMode application_mode;
 	FrameSizeDuration frame_duration;
 	Bandwidth bandwidth;
+	Bandwidth max_bandwidth;
 
 	int max_payload_bytes;
 	int max_frame_size;
 	int frame_size;
+
+	BitrateMode bitrate_mode;
+	int bitrate_bps;
+	int encoder_complexity;
+	int packet_loss_perc;
 
 	float buffer_length_seconds;
 
@@ -150,6 +163,23 @@ public:
 	void set_bandwidth(const GodotOpus::Bandwidth p_bandwidth);
 	GodotOpus::Bandwidth get_bandwidth() const;
 
+	void set_max_bandwidth(const GodotOpus::Bandwidth p_bandwidth);
+	GodotOpus::Bandwidth get_max_bandwidth() const;
+
+	void set_encoder_complexity(const int p_complexity);
+	int get_encoder_complexity() const;
+
+	// Dynamic properties
+
+	void set_bitrate_mode(const GodotOpus::BitrateMode p_mode);
+	GodotOpus::BitrateMode get_bitrate_mode() const;
+
+	void set_bitrate(const int p_bitrate);
+	int get_bitrate() const;
+
+	void set_packet_loss_perc(const int p_packet_loss_perc);
+	int get_packet_loss_perc() const;
+
 	// Not exposed as a property
 	int get_frame_size() const;
 
@@ -164,5 +194,6 @@ VARIANT_ENUM_CAST(GodotOpus::Channels);
 VARIANT_ENUM_CAST(GodotOpus::ApplicationMode);
 VARIANT_ENUM_CAST(GodotOpus::FrameSizeDuration);
 VARIANT_ENUM_CAST(GodotOpus::Bandwidth);
+VARIANT_ENUM_CAST(GodotOpus::BitrateMode);
 
 #endif // GODOT_OPUS_H
