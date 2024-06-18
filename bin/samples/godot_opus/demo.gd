@@ -7,11 +7,13 @@ extends Node2D
 @onready var opus_enabled_options = %OpusEnabledOptions
 @onready var bit_rate_value_label = %BitRateValueLabel
 @onready var input_device_options = %InputDeviceOptions
+@onready var target_bit_rate_spin_box = %TargetBitRateSpinBox
 
 const CAPTURE_BUFFER_SIZE = 256
 const MAX_PACKET_ID = (1 << 31) - 1
 const DROPPED_FRAME_THRESHOLD = 10
 const RAW_SAMPLE_SIZE = 4
+const PACKET_LOSS_COUNT_THRESHOLD = 60
 
 var bus_layout: AudioBusLayout = load("res://samples/godot_opus/demo_bus_layout.tres")
 var bus_index: int
@@ -24,6 +26,11 @@ var receive_packets := Array()
 
 var send_id: int = 0
 var recv_id: int = 0
+
+var dropped_packets: int = 0
+var received_packets: int = 0
+var packet_loss: int = 0
+var running_packet_loss: float = 0.0
 
 var use_opus: bool = true
 var opus_initialized: bool = false
@@ -41,12 +48,12 @@ func _init():
 
 func _ready():
 	_init_opus()
-	
+
 	input.bus = &"Capture"
 	bus_index = AudioServer.get_bus_index("Capture")
 	effect = AudioServer.get_bus_effect(bus_index, 0)
 	playback = output.get_stream_playback()
-	
+
 	# Populate input devices list
 	input_device_options.clear()
 	for device in AudioServer.get_input_device_list():
@@ -56,7 +63,7 @@ func _ready():
 		if device == AudioServer.input_device:
 			input_device_options.select(idx)
 			break
-	
+
 	is_surround = AudioServer.get_bus_channels(bus_index) > 1
 	start_time_msec = Time.get_ticks_msec()
 
@@ -68,6 +75,8 @@ func _process(_delta):
 		_process_mic_bypass()
 		_process_voice_bypass()
 
+	update_packet_loss()
+
 ## Initialize GodotOpus using the current configuration. Can be called more than once.
 func _init_opus():
 	opus_initialized = opus.initialize()
@@ -78,14 +87,15 @@ func _init_opus():
 		use_opus = false
 		opus_enabled_options.select(1)
 		return
-	
+
 	# Get the calculated frame_size given the configured GodotOpus parameters
 	frame_size = opus.get_frame_size()
-	
+	update_target_bit_rate()
+
 	# Packet statistics
 	packet_count = 0
 	packet_size_avg = 0.0
-	
+
 	if not check_audio_input_timer.is_stopped():
 		check_audio_input_timer.stop()
 	check_audio_input_timer.start()
@@ -95,29 +105,29 @@ func _process_mic():
 	while effect.get_frames_available() >= CAPTURE_BUFFER_SIZE:
 		# Process audio from the capture effect in CAPTURE_BUFFER_SIZE sized chunks
 		var stereo_data: PackedVector2Array = effect.get_buffer(CAPTURE_BUFFER_SIZE)
-		
+
 		# Handle potential empty/invalid data
 		if check_empty_data(stereo_data):
 			continue
-		
+
 		# Check if GodotOpus codec has room for our samples, and if so, push them onto the encode buffer
 		if opus.can_push_buffer(CAPTURE_BUFFER_SIZE):
 			opus.push_buffer(stereo_data)
 		else:
 			printerr("Not able to push to encode buffer")
 			break
-	
+
 	while opus.has_encoded_packet():
 		# If GodotOpus has encoded packets available (ie. there is enough data on the encode buffer)
 		var packet: PackedByteArray = opus.get_encoded_packet()
-		
+
 		if packet.is_empty():
 			printerr("Error encoding packet")
 			break
-		
+
 		# Calculate statistics for display on the UI
 		calc_packet_avg(packet.size())
-		
+
 		# If user wants to test packet dropping, randomly decide to drop a packet, or send it.
 		if drop_rate < randf():
 			send_data(send_id, packet)
@@ -129,6 +139,7 @@ func send_data(packet_id: int, payload: PackedByteArray):
 		# Packet id matches expected recv_id, so add packet payload to queue, increment recv_id.
 		receive_packets.append(payload)
 		recv_id = inc_id(recv_id)
+		received_packets += 1
 	else:
 		# Packet id didn't match, so figure out how many packets are missing (delta).
 		var delta: int = (packet_id - recv_id) % MAX_PACKET_ID
@@ -137,27 +148,29 @@ func send_data(packet_id: int, payload: PackedByteArray):
 			for i in range(delta):
 				receive_packets.append(PackedByteArray())
 				recv_id = inc_id(recv_id)
+				dropped_packets += 1
 		else:
-			# delta very large (probably close to MAX_PACKET_ID), 
+			# delta very large (probably close to MAX_PACKET_ID),
 			# either means old packet(s), or huge drop. ignore it.
 			pass
-		
+
 		# Once dropped frames are handled, add the new packet to the queue, increment recv_id
 		receive_packets.append(payload)
 		recv_id = inc_id(recv_id)
+		received_packets += 1
 
 ## If any packets available, decode them and push them to Generator playback (if possible)
 func _process_voice():
 	while receive_packets.size() > 0:
-		
+
 		# If the playback stream cannot handle frame_size samples right now, stop processing
 		if playback.get_frames_available() < frame_size:
 			break
-		
+
 		# Pop encoded packet off receive_packets queue
 		var data: PackedByteArray = receive_packets[0]
 		receive_packets.remove_at(0)
-		
+
 		var output_data: PackedVector2Array
 		if data.size() > 0:
 			# Decode the valid packet with codec
@@ -166,11 +179,11 @@ func _process_voice():
 			# An empty encoded packet it how send_data encodes a dropped packet.
 			# Packets are fixed size, so just pass in our frame_size.
 			output_data = opus.decode_dropped(frame_size)
-		
+
 		if output_data.is_empty():
 			printerr("Error decoding packet")
 			continue
-		
+
 		# Push decoded audio data to the playback stream
 		playback.push_buffer(output_data)
 
@@ -181,10 +194,10 @@ func _process_voice():
 func _process_mic_bypass():
 	while effect.get_frames_available() >= CAPTURE_BUFFER_SIZE:
 		var stereo_data: PackedVector2Array = effect.get_buffer(CAPTURE_BUFFER_SIZE)
-		
+
 		if check_empty_data(stereo_data):
 			continue
-		
+
 		if opus.channels == GodotOpus.CHANNELS_MONO:
 			for i in range(stereo_data.size()):
 				var data = (stereo_data[i][0] + stereo_data[i][1]) * 0.5
@@ -193,19 +206,22 @@ func _process_mic_bypass():
 			calc_packet_avg(stereo_data.size() * RAW_SAMPLE_SIZE)
 		else:
 			calc_packet_avg(stereo_data.size() * 2 * RAW_SAMPLE_SIZE)
-		
+
 		if drop_rate < randf():
 			receive_packets.append(stereo_data)
+			received_packets += 1
+		else:
+			dropped_packets += 1
 
 ## If any packets available, push them to Generator playback (if possible)
 func _process_voice_bypass():
 	while receive_packets.size() > 0:
 		if playback.get_frames_available() < CAPTURE_BUFFER_SIZE:
 			break
-		
+
 		var data: PackedVector2Array = receive_packets[0]
 		receive_packets.remove_at(0)
-		
+
 		playback.push_buffer(data)
 
 # ------------------------------------------------------------------------------
@@ -233,7 +249,7 @@ func calc_packet_avg(size: int):
 		packet_size_total = 0.0
 		bit_rate_value_label.text = "%.2f KB/sec" % bit_rate
 
-## Check if the data from Capture is completely empty (all zeros); skip processing if so. 
+## Check if the data from Capture is completely empty (all zeros); skip processing if so.
 func check_empty_data(data: PackedVector2Array) -> bool:
 	# Workaround for a bug in AudioEffectCapture on surround systems:
 	# https://github.com/godotengine/godot/issues/91133
@@ -243,6 +259,32 @@ func check_empty_data(data: PackedVector2Array) -> bool:
 		if data[i][0] != 0.0 or data[i][1] != 0.0:
 			return false
 	return true
+
+func update_packet_loss():
+	var total_packets = dropped_packets + received_packets
+	if total_packets < PACKET_LOSS_COUNT_THRESHOLD:
+		return
+
+	running_packet_loss = running_packet_loss * 0.9 + (100.0 * dropped_packets / total_packets) * 0.1
+	dropped_packets = 0
+	received_packets = 0
+
+	var delta = running_packet_loss - float(packet_loss)
+	if absf(delta) > 1.0 or (running_packet_loss < 0.5 and delta < -1e-6):
+		packet_loss = int(running_packet_loss)
+		opus.set_packet_loss_perc(packet_loss)
+
+func update_target_bit_rate():
+	var mode = opus.bitrate_mode
+	if not target_bit_rate_spin_box:
+		return
+
+	if mode == GodotOpus.BITRATE_VARIABLE_AUTO or mode == GodotOpus.BITRATE_VARIABLE_BITRATE_MAX:
+		target_bit_rate_spin_box.editable = false
+		# Get actual bitrate from the codec, given the bitrate_mode (and other parameters)
+		target_bit_rate_spin_box.value = int(opus.bitrate / 1000)
+	else:
+		target_bit_rate_spin_box.editable = true
 
 # ------------------------------------------------------------------------------
 # UI Signal callback functions
@@ -257,7 +299,7 @@ func _on_channels_options_item_selected(index):
 	# 0: Mono, 1: Stereo
 	var options = [GodotOpus.CHANNELS_MONO, GodotOpus.CHANNELS_STEREO]
 	var new_channels = options[index]
-	
+
 	if new_channels != opus.channels:
 		opus.channels = new_channels
 		_init_opus()
@@ -267,16 +309,16 @@ func _on_frame_duration_options_item_selected(index):
 	# 5: 60 ms, 6: 80 ms, 7: 100 ms, 8: 120 ms
 	var options = [[GodotOpus.FRAMESIZE_2_5_MS, 240],
 		[GodotOpus.FRAMESIZE_5_MS, 120],
-		[GodotOpus.FRAMESIZE_10_MS, 60], 
+		[GodotOpus.FRAMESIZE_10_MS, 60],
 		[GodotOpus.FRAMESIZE_20_MS, 30],
-		[GodotOpus.FRAMESIZE_40_MS, 15], 
+		[GodotOpus.FRAMESIZE_40_MS, 15],
 		[GodotOpus.FRAMESIZE_60_MS, 10],
-		[GodotOpus.FRAMESIZE_80_MS, 8], 
+		[GodotOpus.FRAMESIZE_80_MS, 8],
 		[GodotOpus.FRAMESIZE_100_MS, 6],
 		[GodotOpus.FRAMESIZE_120_MS, 5]]
 	var new_duration = options[index][0]
 	var new_packet_thresh = options[index][1]
-	
+
 	if new_duration != opus.frame_duration:
 		opus.frame_duration = new_duration
 		packet_threshold = new_packet_thresh
@@ -288,7 +330,7 @@ func _on_bandwidth_options_item_selected(index):
 		GodotOpus.BANDWIDTH_MEDIUMBAND, GodotOpus.BANDWIDTH_WIDEBAND,
 		GodotOpus.BANDWIDTH_SUPERWIDEBAND, GodotOpus.BANDWIDTH_FULLBAND]
 	var new_bandwidth = options[index]
-	
+
 	if new_bandwidth != opus.bandwidth:
 		opus.bandwidth = new_bandwidth
 		_init_opus()
@@ -301,3 +343,19 @@ func _on_audio_timer_timeout():
 		var msg = "No Audio Detected. Check audio/driver/enable_input."
 		bit_rate_value_label.text = msg
 		printerr(msg)
+
+func _on_bit_rate_mode_options_item_selected(index):
+	# 0: VBR Auto, 1: VBR Max, 2: VBR Manual, 3: CBR
+	var options = [GodotOpus.BITRATE_VARIABLE_AUTO, GodotOpus.BITRATE_VARIABLE_BITRATE_MAX,
+		GodotOpus.BITRATE_VARIABLE_MANUAL, GodotOpus.BITRATE_CONSTANT]
+	var new_mode = options[index]
+
+	if new_mode != opus.bitrate_mode:
+		opus.bitrate_mode = new_mode
+		# Don't need to reinit opus
+		update_target_bit_rate()
+
+func _on_target_bit_rate_spin_box_value_changed(value):
+	if opus.bitrate_mode == GodotOpus.BITRATE_VARIABLE_MANUAL or opus.bitrate_mode == GodotOpus.BITRATE_CONSTANT:
+		opus.bitrate = 1000 * value
+

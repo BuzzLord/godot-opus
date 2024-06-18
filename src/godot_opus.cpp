@@ -21,6 +21,7 @@ GodotOpus::GodotOpus() {
 	application_mode = APPLICATION_MODE_VOIP;
 	frame_duration = FRAMESIZE_20_MS;
 	bandwidth = BANDWIDTH_AUTO;
+	max_bandwidth = BANDWIDTH_FULLBAND;
 
 	skip_samples = 312; // 48 kHz, VoIP encoder gives 312 skip samples for lookahead
 	decoded_samples = 0;
@@ -29,6 +30,11 @@ GodotOpus::GodotOpus() {
 	max_payload_bytes = 1024;
 	max_frame_size = 48000 * 2;
 	buffer_length_seconds = 0.5;
+
+	bitrate_mode = BITRATE_VARIABLE_AUTO;
+	bitrate_bps = 120000; // Default bitrate for 48 kHz stereo
+	encoder_complexity = 10;
+	packet_loss_perc = 0;
 
 	_update_frame_size(); // frame_size = 960; // sampling_rate / (1000 / frame_duration) => 48000 / 50
 }
@@ -67,17 +73,35 @@ bool GodotOpus::initialize() {
 		ERR_FAIL_COND_V_MSG(err != OPUS_OK, false, opus_strerror(err));
 
 		opus_encoder_ctl(encoder, OPUS_SET_BANDWIDTH((int)bandwidth));
-		opus_encoder_ctl(encoder, OPUS_GET_LOOKAHEAD(&skip_samples));
 
-		// opus_encoder_ctl(encoder, OPUS_SET_BITRATE(bitrate_bps));
-		// opus_encoder_ctl(encoder, OPUS_SET_VBR(use_vbr));
+		opus_int32 max_bw;
+		if (max_bandwidth == Bandwidth::BANDWIDTH_AUTO) {
+			// Allow max_bandwidth to be set to auto, but in that case,
+			// fall back to fullband, let normal bandwidth handle changes
+			max_bw = OPUS_BANDWIDTH_FULLBAND;
+		} else {
+			max_bw = (opus_int32)max_bandwidth;
+		}
+		opus_encoder_ctl(encoder, OPUS_SET_MAX_BANDWIDTH(max_bw));
+		opus_encoder_ctl(encoder, OPUS_GET_LOOKAHEAD(&skip_samples));
+		opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(encoder_complexity));
+		opus_encoder_ctl(encoder, OPUS_SET_PACKET_LOSS_PERC(packet_loss_perc));
+
+		opus_int32 use_vbr = bitrate_mode == BITRATE_CONSTANT ? 0 : 1;
+		opus_encoder_ctl(encoder, OPUS_SET_VBR(use_vbr));
 		// opus_encoder_ctl(encoder, OPUS_SET_VBR_CONSTRAINT(cvbr));
-		// opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(complexity));
+
+		if (bitrate_mode == BITRATE_VARIABLE_AUTO || bitrate_mode == BITRATE_VARIABLE_BITRATE_MAX) {
+			opus_encoder_ctl(encoder, OPUS_SET_BITRATE(bitrate_mode));
+			opus_encoder_ctl(encoder, OPUS_GET_BITRATE(&bitrate_bps));
+		} else {
+			// manual or constant mode, use bps
+			opus_encoder_ctl(encoder, OPUS_SET_BITRATE(bitrate_bps));
+		}
+
 		// opus_encoder_ctl(encoder, OPUS_SET_INBAND_FEC(use_inbandfec));
 		// opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(forcechannels));
 		// opus_encoder_ctl(encoder, OPUS_SET_DTX(use_dtx));
-		// opus_encoder_ctl(encoder, OPUS_SET_PACKET_LOSS_PERC(packet_loss_perc));
-
 		// opus_encoder_ctl(encoder, OPUS_SET_LSB_DEPTH(16));
 		// opus_encoder_ctl(encoder, OPUS_SET_EXPERT_FRAME_DURATION(variable_duration));
 
@@ -455,6 +479,74 @@ GodotOpus::Bandwidth GodotOpus::get_bandwidth() const {
 	return bandwidth;
 }
 
+void GodotOpus::set_max_bandwidth(const GodotOpus::Bandwidth p_bandwidth) {
+	max_bandwidth = p_bandwidth;
+}
+
+GodotOpus::Bandwidth GodotOpus::get_max_bandwidth() const {
+	return max_bandwidth;
+}
+
+void GodotOpus::set_encoder_complexity(const int p_complexity) {
+	encoder_complexity = p_complexity;
+}
+
+int GodotOpus::get_encoder_complexity() const {
+	return encoder_complexity;
+}
+
+// Dynamic properties (don't require re-initialize() to be applied)
+
+void GodotOpus::set_bitrate_mode(const GodotOpus::BitrateMode p_mode) {
+	bitrate_mode = p_mode;
+
+	if (encoder_initialized) {
+		opus_int32 use_vbr = bitrate_mode == BITRATE_CONSTANT ? 0 : 1;
+		opus_encoder_ctl(encoder, OPUS_SET_VBR(use_vbr));
+
+		if (bitrate_mode == BITRATE_VARIABLE_AUTO || bitrate_mode == BITRATE_VARIABLE_BITRATE_MAX) {
+			opus_encoder_ctl(encoder, OPUS_SET_BITRATE(bitrate_mode));
+			opus_encoder_ctl(encoder, OPUS_GET_BITRATE(&bitrate_bps));
+		} else {
+			// manual or constant mode, use bps
+			opus_encoder_ctl(encoder, OPUS_SET_BITRATE(bitrate_bps));
+		}
+	}
+}
+
+GodotOpus::BitrateMode GodotOpus::get_bitrate_mode() const {
+	return bitrate_mode;
+}
+
+void GodotOpus::set_bitrate(const int p_bitrate) {
+	bitrate_bps = p_bitrate;
+
+	if (encoder_initialized) {
+		if (bitrate_mode == BITRATE_VARIABLE_AUTO || bitrate_mode == BITRATE_VARIABLE_BITRATE_MAX) {
+			WARN_PRINT_ONCE_ED("Bitrate value ignored when Bitrate Mode is Auto or Max");
+			opus_encoder_ctl(encoder, OPUS_GET_BITRATE(&bitrate_bps));
+		} else {
+			// manual or constant mode, use bps
+			bitrate_bps = p_bitrate;
+			opus_encoder_ctl(encoder, OPUS_SET_BITRATE(bitrate_bps));
+		}
+	}
+}
+
+int GodotOpus::get_bitrate() const {
+	return bitrate_bps;
+}
+
+void GodotOpus::set_packet_loss_perc(const int p_packet_loss_perc) {
+	ERR_FAIL_COND_MSG(p_packet_loss_perc < 0 || p_packet_loss_perc > 100, "packet_loss outside valid range 0-100");
+	packet_loss_perc = p_packet_loss_perc;
+	opus_encoder_ctl(encoder, OPUS_SET_PACKET_LOSS_PERC(packet_loss_perc));
+}
+
+int GodotOpus::get_packet_loss_perc() const {
+	return packet_loss_perc;
+}
+
 // Bind methods
 
 void GodotOpus::_bind_methods() {
@@ -494,6 +586,18 @@ void GodotOpus::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_frame_duration", "p_frame_duration"), &GodotOpus::set_frame_duration);
 	ClassDB::bind_method(D_METHOD("get_bandwidth"), &GodotOpus::get_bandwidth);
 	ClassDB::bind_method(D_METHOD("set_bandwidth", "p_bandwidth"), &GodotOpus::set_bandwidth);
+	ClassDB::bind_method(D_METHOD("get_max_bandwidth"), &GodotOpus::get_max_bandwidth);
+	ClassDB::bind_method(D_METHOD("set_max_bandwidth", "p_bandwidth"), &GodotOpus::set_max_bandwidth);
+
+	ClassDB::bind_method(D_METHOD("get_bitrate_mode"), &GodotOpus::get_bitrate_mode);
+	ClassDB::bind_method(D_METHOD("set_bitrate_mode", "p_mode"), &GodotOpus::set_bitrate_mode);
+	ClassDB::bind_method(D_METHOD("get_bitrate"), &GodotOpus::get_bitrate);
+	ClassDB::bind_method(D_METHOD("set_bitrate", "p_bitrate"), &GodotOpus::set_bitrate);
+
+	ClassDB::bind_method(D_METHOD("get_encoder_complexity"), &GodotOpus::get_encoder_complexity);
+	ClassDB::bind_method(D_METHOD("set_encoder_complexity", "p_complexity"), &GodotOpus::set_encoder_complexity);
+	ClassDB::bind_method(D_METHOD("get_packet_loss_perc"), &GodotOpus::get_packet_loss_perc);
+	ClassDB::bind_method(D_METHOD("set_packet_loss_perc", "p_packet_loss"), &GodotOpus::set_packet_loss_perc);
 
 	ClassDB::bind_method(D_METHOD("get_max_payload_bytes"), &GodotOpus::get_max_payload_bytes);
 	ClassDB::bind_method(D_METHOD("set_max_payload_bytes", "p_max_payload_bytes"), &GodotOpus::set_max_payload_bytes);
@@ -507,8 +611,13 @@ void GodotOpus::_bind_methods() {
 	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "application_mode", PROPERTY_HINT_ENUM, "VoIP:2048,Audio:2049,Restricted-LowDelay:2051"), "set_application_mode", "get_application_mode");
 	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "frame_duration", PROPERTY_HINT_ENUM, "2.5 ms:5001,5 ms:5002,10 ms:5003,20 ms:5004,40 ms:5005,60 ms:5006,80 ms:5007,100 ms:5008,120 ms:5009"), "set_frame_duration", "get_frame_duration");
 	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "bandwidth", PROPERTY_HINT_ENUM, "Narrow Band:1101,Medium Band:1102,Wide Band:1103,Super Wide Band:1004,Full Band:1105,Auto Bandwidth:-1000"), "set_bandwidth", "get_bandwidth");
+	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "max_bandwidth", PROPERTY_HINT_ENUM, "Narrow Band:1101,Medium Band:1102,Wide Band:1103,Super Wide Band:1004,Full Band:1105"), "set_max_bandwidth", "get_max_bandwidth");
+	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "bitrate_mode", PROPERTY_HINT_ENUM, "VBR Auto:-1000,VBR Max:-1,VBR Manual:0,CBR:1"), "set_bitrate_mode", "get_bitrate_mode");
+	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "bitrate", PROPERTY_HINT_RANGE, "6000,512000,1000,exp,suffix:bps"), "set_bitrate", "get_bitrate");
+	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "encoder_complexity", PROPERTY_HINT_RANGE, "0,10,1"), "set_encoder_complexity", "get_encoder_complexity");
+	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "packet_loss", PROPERTY_HINT_RANGE, "0,100,1,suffix:%"), "set_packet_loss_perc", "get_packet_loss_perc");
 	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::INT, "max_payload_bytes", PROPERTY_HINT_RANGE, "16,2048,16,suffix:B"), "set_max_payload_bytes", "get_max_payload_bytes");
-	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::FLOAT, "buffer_length_seconds", PROPERTY_HINT_RANGE, "0.01,10,0.01,suffix:s"), "set_buffer_length_seconds", "get_buffer_length_seconds");
+	ClassDB::add_property("GodotOpus", PropertyInfo(Variant::FLOAT, "buffer_length_seconds", PROPERTY_HINT_RANGE, "0.01,10,0.01,exp,suffix:s"), "set_buffer_length_seconds", "get_buffer_length_seconds");
 
 	BIND_ENUM_CONSTANT(SAMPLE_RATE_8000);
 	BIND_ENUM_CONSTANT(SAMPLE_RATE_12000);
@@ -539,4 +648,9 @@ void GodotOpus::_bind_methods() {
 	BIND_ENUM_CONSTANT(BANDWIDTH_SUPERWIDEBAND);
 	BIND_ENUM_CONSTANT(BANDWIDTH_FULLBAND);
 	BIND_ENUM_CONSTANT(BANDWIDTH_AUTO);
+
+	BIND_ENUM_CONSTANT(BITRATE_VARIABLE_AUTO);
+	BIND_ENUM_CONSTANT(BITRATE_VARIABLE_BITRATE_MAX);
+	BIND_ENUM_CONSTANT(BITRATE_VARIABLE_MANUAL);
+	BIND_ENUM_CONSTANT(BITRATE_CONSTANT);
 }

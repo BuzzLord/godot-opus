@@ -31,10 +31,8 @@ one_shot = true
 [node name="UI" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 0
-offset_left = 278.0
-offset_top = 144.0
-offset_right = 874.0
-offset_bottom = 504.0
+offset_right = 1152.0
+offset_bottom = 648.0
 
 [node name="PanelContainer" type="PanelContainer" parent="UI"]
 layout_mode = 1
@@ -44,9 +42,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -320.0
-offset_top = -201.5
+offset_top = -260.0
 offset_right = 320.0
-offset_bottom = 218.5
+offset_bottom = 260.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -169,6 +167,40 @@ popup/item_7/id = 7
 popup/item_8/text = "120 ms"
 popup/item_8/id = 8
 
+[node name="BitRateModeLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Bit Rate of the transmitted packets."
+mouse_filter = 0
+text = "Bit Rate Mode"
+
+[node name="BitRateModeOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+item_count = 4
+selected = 0
+popup/item_0/text = "VBR Auto"
+popup/item_0/id = 0
+popup/item_1/text = "VBR Max Bitrate"
+popup/item_1/id = 1
+popup/item_2/text = "VBR Manual"
+popup/item_2/id = 2
+popup/item_3/text = "CBR"
+popup/item_3/id = 3
+
+[node name="TargetBitRateLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Bit Rate of the transmitted packets."
+mouse_filter = 0
+text = "Target Bit Rate"
+
+[node name="TargetBitRateSpinBox" type="SpinBox" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 6.0
+max_value = 512.0
+value = 12.0
+exp_edit = true
+suffix = "kbps"
+
 [node name="BandwidthLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
 tooltip_text = "Bandwidth target of the Opus 
@@ -211,5 +243,7 @@ suffix = "%"
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/OpusEnabledOptions" to="." method="_on_opus_enabled_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/ChannelsOptions" to="." method="_on_channels_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/FrameDurationOptions" to="." method="_on_frame_duration_options_item_selected"]
+[connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/BitRateModeOptions" to="." method="_on_bit_rate_mode_options_item_selected"]
+[connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/TargetBitRateSpinBox" to="." method="_on_target_bit_rate_spin_box_value_changed"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/BandwidthOptions" to="." method="_on_bandwidth_options_item_selected"]
 [connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/DropRateSpinBox" to="." method="_on_drop_rate_spin_box_value_changed"]
