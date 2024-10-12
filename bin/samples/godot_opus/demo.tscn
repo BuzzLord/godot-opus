@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://drfygs126t4ii"]
+[gd_scene load_steps=5 format=3 uid="uid://drfygs126t4ii"]
 
 [ext_resource type="Script" path="res://samples/godot_opus/demo.gd" id="1_l6c0d"]
+[ext_resource type="AudioStream" uid="uid://po8i2cpe5wbs" path="res://samples/godot_opus/speech_orig.wav" id="2_033m4"]
 
 [sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_qeny7"]
 
@@ -15,10 +16,11 @@ script = ExtResource("1_l6c0d")
 channels = 1
 frame_duration = 5003
 
-[node name="Input" type="AudioStreamPlayer" parent="."]
+[node name="InputMic" type="AudioStreamPlayer" parent="."]
 stream = SubResource("AudioStreamMicrophone_qeny7")
-autoplay = true
-bus = &"Capture"
+
+[node name="InputFile" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_033m4")
 
 [node name="Output" type="AudioStreamPlayer" parent="."]
 stream = SubResource("AudioStreamGenerator_l1q65")
@@ -42,9 +44,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -320.0
-offset_top = -260.0
+offset_top = -300.0
 offset_right = 320.0
-offset_bottom = 260.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -78,7 +80,36 @@ layout_mode = 2
 theme_override_constants/v_separation = 12
 columns = 2
 
+[node name="InputTypeLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Type of input playback, a pre-packaged
+audio file, or a microphone input device."
+mouse_filter = 0
+text = "Input Type"
+
+[node name="InputTypeOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+selected = 0
+item_count = 2
+popup/item_0/text = "Audio File"
+popup/item_1/text = "Microphone"
+popup/item_1/id = 1
+
+[node name="AudioFileLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 0
+
+[node name="AudioFileButton" type="Button" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Play the audio file!"
+text = "Play Audio"
+
 [node name="InputDeviceLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 2
 tooltip_text = "Bit Rate of the transmitted packets."
 mouse_filter = 0
@@ -86,6 +117,7 @@ text = "Input Device"
 
 [node name="InputDeviceOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 
 [node name="BitRateLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
@@ -101,8 +133,8 @@ layout_mode = 2
 [node name="OpusEnabledLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Enable encoding and decoding of 
-the voice/mic data packets using the 
+tooltip_text = "Enable encoding and decoding of
+the voice/mic data packets using the
 configured Opus parameters."
 mouse_filter = 0
 text = "Opus Codec"
@@ -110,17 +142,16 @@ text = "Opus Codec"
 [node name="OpusEnabledOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-item_count = 2
 selected = 0
+item_count = 2
 popup/item_0/text = "Enabled"
-popup/item_0/id = 0
 popup/item_1/text = "Disabled"
 popup/item_1/id = 1
 
 [node name="ChannelsLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Number of channels to transmit. 
+tooltip_text = "Number of channels to transmit.
 Mono signals are decoded to stereo
 on the receiving side."
 mouse_filter = 0
@@ -128,28 +159,26 @@ text = "Channels"
 
 [node name="ChannelsOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-item_count = 2
 selected = 0
+item_count = 2
 popup/item_0/text = "Mono"
-popup/item_0/id = 0
 popup/item_1/text = "Stereo"
 popup/item_1/id = 1
 
 [node name="FrameDurationLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-tooltip_text = "Duration in milliseconds that the 
-Opus codec acts on. Lower 
-durations give better (lower) latency, 
+tooltip_text = "Duration in milliseconds that the
+Opus codec acts on. Lower
+durations give better (lower) latency,
 but increase the bit rate."
 mouse_filter = 0
 text = "Frame Duration"
 
 [node name="FrameDurationOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-item_count = 9
 selected = 2
+item_count = 9
 popup/item_0/text = "2.5 ms"
-popup/item_0/id = 0
 popup/item_1/text = "5 ms"
 popup/item_1/id = 1
 popup/item_2/text = "10 ms"
@@ -175,10 +204,9 @@ text = "Bit Rate Mode"
 
 [node name="BitRateModeOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-item_count = 4
 selected = 0
+item_count = 4
 popup/item_0/text = "VBR Auto"
-popup/item_0/id = 0
 popup/item_1/text = "VBR Max Bitrate"
 popup/item_1/id = 1
 popup/item_2/text = "VBR Manual"
@@ -203,18 +231,17 @@ suffix = "kbps"
 
 [node name="BandwidthLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-tooltip_text = "Bandwidth target of the Opus 
-codec. Can be used to decrease bit 
+tooltip_text = "Bandwidth target of the Opus
+codec. Can be used to decrease bit
 rate, at the expense of audio quality."
 mouse_filter = 0
 text = "Bandwidth"
 
 [node name="BandwidthOptions" type="OptionButton" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-item_count = 6
 selected = 0
+item_count = 6
 popup/item_0/text = "Auto Bandwidth"
-popup/item_0/id = 0
 popup/item_1/text = "Narrow Band"
 popup/item_1/id = 1
 popup/item_2/text = "Medium Band"
@@ -226,10 +253,25 @@ popup/item_4/id = 4
 popup/item_5/text = "Full Band"
 popup/item_5/id = 5
 
+[node name="PacketLossLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+tooltip_text = "Packet loss percentage. Higher values
+trigger progressively more loss resistant
+behavior in the encoder at the expense
+of quality at a given bitrate in the
+absence of packet loss, but greater
+quality under loss."
+mouse_filter = 0
+text = "Packet Loss"
+
+[node name="PacketLossSpinBox" type="SpinBox" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
+layout_mode = 2
+suffix = "%"
+
 [node name="DropRateLabel" type="Label" parent="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer"]
 layout_mode = 2
-tooltip_text = "Debugging parameter, used to 
-demostrate how Opus sounds when 
+tooltip_text = "Debugging parameter, used to
+demostrate how Opus sounds when
 packets are dropped. Disable packet
 dropping by setting to 0 %."
 mouse_filter = 0
@@ -240,10 +282,13 @@ layout_mode = 2
 suffix = "%"
 
 [connection signal="timeout" from="Timer" to="." method="_on_audio_timer_timeout"]
+[connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/InputTypeOptions" to="." method="_on_input_type_options_item_selected"]
+[connection signal="pressed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/AudioFileButton" to="." method="_on_audio_file_button_pressed"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/OpusEnabledOptions" to="." method="_on_opus_enabled_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/ChannelsOptions" to="." method="_on_channels_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/FrameDurationOptions" to="." method="_on_frame_duration_options_item_selected"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/BitRateModeOptions" to="." method="_on_bit_rate_mode_options_item_selected"]
 [connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/TargetBitRateSpinBox" to="." method="_on_target_bit_rate_spin_box_value_changed"]
 [connection signal="item_selected" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/BandwidthOptions" to="." method="_on_bandwidth_options_item_selected"]
+[connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/PacketLossSpinBox" to="." method="_on_packet_loss_spin_box_value_changed"]
 [connection signal="value_changed" from="UI/PanelContainer/MarginContainer/VBoxContainer/MarginContainer/GridContainer/DropRateSpinBox" to="." method="_on_drop_rate_spin_box_value_changed"]

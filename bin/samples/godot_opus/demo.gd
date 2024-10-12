@@ -1,13 +1,20 @@
 extends Node2D
 
-@onready var opus = $GodotOpus
-@onready var input = $Input
-@onready var output = $Output
-@onready var check_audio_input_timer = $Timer
-@onready var opus_enabled_options = %OpusEnabledOptions
-@onready var bit_rate_value_label = %BitRateValueLabel
-@onready var input_device_options = %InputDeviceOptions
-@onready var target_bit_rate_spin_box = %TargetBitRateSpinBox
+@onready var opus: GodotOpus = $GodotOpus
+@onready var input_mic: AudioStreamPlayer = $InputMic
+@onready var input_file: AudioStreamPlayer = $InputFile
+@onready var output: AudioStreamPlayer = $Output
+@onready var check_audio_input_timer: Timer = $Timer
+
+@onready var opus_enabled_options: OptionButton = %OpusEnabledOptions
+@onready var bit_rate_value_label: Label = %BitRateValueLabel
+@onready var input_type_options: OptionButton = %InputTypeOptions
+@onready var audio_file_label: Label = %AudioFileLabel
+@onready var audio_file_button: Button = %AudioFileButton
+@onready var input_device_label: Label = %InputDeviceLabel
+@onready var input_device_options: OptionButton = %InputDeviceOptions
+@onready var target_bit_rate_spin_box: SpinBox = %TargetBitRateSpinBox
+
 
 const CAPTURE_BUFFER_SIZE = 256
 const MAX_PACKET_ID = (1 << 31) - 1
@@ -49,7 +56,8 @@ func _init():
 func _ready():
 	_init_opus()
 
-	input.bus = &"Capture"
+	input_mic.bus = &"Capture"
+	input_file.bus = &"Capture"
 	bus_index = AudioServer.get_bus_index("Capture")
 	effect = AudioServer.get_bus_effect(bus_index, 0)
 	playback = output.get_stream_playback()
@@ -63,6 +71,9 @@ func _ready():
 		if device == AudioServer.input_device:
 			input_device_options.select(idx)
 			break
+
+	# Initialize input option selection
+	_on_input_type_options_item_selected(input_type_options.get_selected_id())
 
 	is_surround = AudioServer.get_bus_channels(bus_index) > 1
 	start_time_msec = Time.get_ticks_msec()
@@ -96,26 +107,23 @@ func _init_opus():
 	packet_count = 0
 	packet_size_avg = 0.0
 
-	if not check_audio_input_timer.is_stopped():
-		check_audio_input_timer.stop()
-	check_audio_input_timer.start()
-
 ## Grab chunk of mic data from Capture, use GodotOpus to encode, then 'send' them to client to process voice
 func _process_mic():
+	# Process audio from the capture effect in CAPTURE_BUFFER_SIZE sized chunks
 	while effect.get_frames_available() >= CAPTURE_BUFFER_SIZE:
-		# Process audio from the capture effect in CAPTURE_BUFFER_SIZE sized chunks
+		# Check if GodotOpus codec has room for our samples
+		if not opus.can_push_buffer(CAPTURE_BUFFER_SIZE):
+			break
+
+		# Pop the next chunk off the effect buffer
 		var stereo_data: PackedVector2Array = effect.get_buffer(CAPTURE_BUFFER_SIZE)
 
 		# Handle potential empty/invalid data
 		if check_empty_data(stereo_data):
 			continue
 
-		# Check if GodotOpus codec has room for our samples, and if so, push them onto the encode buffer
-		if opus.can_push_buffer(CAPTURE_BUFFER_SIZE):
-			opus.push_buffer(stereo_data)
-		else:
-			printerr("Not able to push to encode buffer")
-			break
+		# Push the data onto the encode buffer
+		opus.push_buffer(stereo_data)
 
 	while opus.has_encoded_packet():
 		# If GodotOpus has encoded packets available (ie. there is enough data on the encode buffer)
@@ -282,7 +290,7 @@ func update_target_bit_rate():
 	if mode == GodotOpus.BITRATE_VARIABLE_AUTO or mode == GodotOpus.BITRATE_VARIABLE_BITRATE_MAX:
 		target_bit_rate_spin_box.editable = false
 		# Get actual bitrate from the codec, given the bitrate_mode (and other parameters)
-		target_bit_rate_spin_box.value = int(opus.bitrate / 1000)
+		target_bit_rate_spin_box.value = int(opus.bitrate / 1000.0)
 	else:
 		target_bit_rate_spin_box.editable = true
 
@@ -355,7 +363,37 @@ func _on_bit_rate_mode_options_item_selected(index):
 		# Don't need to reinit opus
 		update_target_bit_rate()
 
+func _on_packet_loss_spin_box_value_changed(value: float) -> void:
+	opus.packet_loss = int(value)
+
 func _on_target_bit_rate_spin_box_value_changed(value):
 	if opus.bitrate_mode == GodotOpus.BITRATE_VARIABLE_MANUAL or opus.bitrate_mode == GodotOpus.BITRATE_CONSTANT:
 		opus.bitrate = 1000 * value
 
+func _on_audio_file_button_pressed() -> void:
+	if not input_file.playing:
+		input_file.play()
+
+func _on_input_type_options_item_selected(index: int) -> void:
+	if not check_audio_input_timer.is_stopped():
+		check_audio_input_timer.stop()
+
+	match index:
+		0:  # Audio File
+			print("Audio file")
+			input_mic.stop()
+			input_device_label.hide()
+			input_device_options.hide()
+			audio_file_label.show()
+			audio_file_button.show()
+		1:  # Microphone
+			print("Microphone")
+			input_file.stop()
+			audio_file_label.hide()
+			audio_file_button.hide()
+			input_device_label.show()
+			input_device_options.show()
+			input_mic.play()
+			check_audio_input_timer.start()
+		_:
+			push_error("Unexpected input type option item selected!")
