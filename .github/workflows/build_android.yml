@@ -51,7 +51,7 @@ jobs:
 
       - name: Configure Opus
         working-directory: ./thirdparty/opus/build
-        run: cmake .. -DCMAKE_TOOLCHAIN_FILE=${ANDROID_HOME}/ndk/25.2.9519653/build/cmake/android.toolchain.cmake -DANDROID_ABI=${{ matrix.abi }} -DCMAKE_BUILD_TYPE=Release -DOPUS_BUILD_PROGRAMS=ON -DBUILD_TESTING=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        run: cmake .. -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DANDROID_ABI=${{ matrix.abi }} -DCMAKE_BUILD_TYPE=Release -DOPUS_BUILD_PROGRAMS=ON -DBUILD_TESTING=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 
       - name: Build Opus
         working-directory: ./thirdparty/opus/build
